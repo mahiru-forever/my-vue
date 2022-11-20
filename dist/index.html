@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+</head>
+<title>Document</title>
+
+<body>
+  <div id="app" style="font-size: 16px;line-height: 20px;">
+    <div style="color:blue;">
+      {{ name }} hello {{ age }}
+    </div>
+    <span>text</span>
+  </div>
+  <script src="./vue.js"></script>
+  <script>
+    const vm = new Vue({
+      data() {
+        return {
+          name: 'lch',
+          age: 18,
+          testObj: {
+            key1: 11,
+            key2: 'xxx'
+          },
+          hobby: ['hobby1', 'hobby2', { a: 1 }]
+        }
+      },
+      el: '#app',
+      template: '', // 将template转成render函数
+      // render() { }
+    })
+
+    console.log(vm)
+
+    setTimeout(() => {
+      vm.age += 1
+
+      // vm._update(vm._render()) 
+    }, 1000);
+    // 1.模板引擎 性能差 vue1.0
+    // 2.虚拟dom 将模版变成js语法，通过js语法生成虚拟dom
+  </script>
+</body>
+
+</html>

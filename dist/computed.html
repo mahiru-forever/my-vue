@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+</head>
+<title>Document</title>
+
+<body>
+  <div id="app" style="font-size: 16px;line-height: 20px;">
+    <div style="color:blue;">
+      {{ mergeRes }} {{ mergeRes }} {{ mergeRes }}
+    </div>
+  </div>
+  <script src="./vue.js"></script>
+  <script>
+    const vm = new Vue({
+      data() {
+        return {
+          name: 'lch',
+          age: 18
+        }
+      },
+      // 计算属性依赖值发生变化，才会重新执行， 维护一个dirty属性，默认计算属性不会立即执行
+      // 计算属性也是definPropertype
+      // 计算属性也是一个watcher
+      computed: {
+        mergeRes() {
+          console.log('run');
+
+          return `${this.name}__${this.age}`
+        },
+        mergeRes2: {
+          get() { return `${this.name}__${this.age}` },
+          set(newValue) { console.log(newValue) }
+        }
+      },
+      el: '#app'
+    })
+
+    setTimeout(() => {
+      vm.age = 19
+    }, 1000);
+
+  </script>
+</body>
+
+</html>

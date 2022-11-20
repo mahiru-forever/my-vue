@@ -1,0 +1,21 @@
+{
+  "name": "vue2",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "rollup -cw"
+  },
+  "keywords": [],
+  "author": "",
+  "type": "module",
+  "license": "ISC",
+  "devDependencies": {
+    "@babel/core": "^7.20.2",
+    "@babel/preset-env": "^7.20.2",
+    "rollup": "^3.3.0",
+    "rollup-plugin-babel": "^4.4.0",
+    "@rollup/plugin-node-resolve": "^15.0.1"
+  },
+  "dependencies": {},
+  "description": ""
+}

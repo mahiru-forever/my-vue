@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+</head>
+<title>Document</title>
+
+<body>
+  <div id="app" style="font-size: 16px;line-height: 20px;">
+    <div style="color:blue;">
+      {{ name }} hello {{ age }}
+    </div>
+    <span>text</span>
+  </div>
+  <script src="./vue.js"></script>
+  <script>
+    Vue.mixin({
+      created() {
+        console.log('created 1');
+      }
+    })
+    Vue.mixin({
+      created() {
+        console.log('created 2');
+      }
+    })
+
+    const vm = new Vue({
+      data() {
+        return {
+          name: 'lch',
+          age: 18
+        }
+      },
+      el: '#app',
+      created() { console.log('created 3'); }
+    })
+
+
+  </script>
+</body>
+
+</html>
