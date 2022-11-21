@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+</head>
+<title>Document</title>
+
+<body>
+  <div id="app" style="font-size: 16px;line-height: 20px;">
+    <div style="color:blue;">
+      {{ name }} {{ age }}
+    </div>
+  </div>
+  <script src="./vue.js"></script>
+  <script>
+    const vm = new Vue({
+      data() {
+        return {
+          name: 'lch',
+          age: 18
+        }
+      },
+      methods: {
+        fn(newValue, oldValue) {
+          console.log('fn', newValue, oldValue);
+        }
+      },
+      watch: {
+        // 写法1
+        name(newValue, oldValue) {
+          console.log('watch ————', newValue, oldValue);
+        },
+        // 写法2
+        age: [
+          (newValue, oldValue) => {
+            console.log(1, newValue, oldValue);
+          },
+          (newValue, oldValue) => {
+            console.log(2, newValue, oldValue);
+          }
+        ],
+        // 写法3
+        // age: 'fn',
+        // 写法4
+        // age: [
+        //   'fn',
+        //   (newValue, oldValue) => {
+        //     console.log(2, newValue, oldValue);
+        //   }
+        // ],
+        // 写法5
+        // age: {
+        //   handler: (newValue, oldValue) => {
+        //     console.log(2, newValue, oldValue);
+        //   }
+        // }
+      },
+      el: '#app'
+    })
+
+    // // 写法6
+    // vm.$watch(() => vm.name, (newValue, oldValue) => {
+    //   console.log(2, newValue, oldValue);
+    // })
+    // // 写法7
+    // vm.$watch("name", (newValue, oldValue) => {
+    //   console.log(2, newValue, oldValue);
+    // })
+
+    setTimeout(() => {
+      vm.name = 'hahahh'
+    }, 1000);
+
+  </script>
+</body>
+
+</html>

@@ -44,6 +44,8 @@
         ob.observeArray(inserted);
       }
 
+      // 触发数组的watcher视图更新
+      ob.dep.notify();
       return result
     };
   });
@@ -86,9 +88,13 @@
     constructor(data) {
       // Object.defineProperty只能劫持已经存在的属性（$set,$delete...）
 
+      // 每个对象、数组自身都创建一个dep（ ）
+      this.dep = new Dep();
+
       // 作用：
       // 1.将this挂载到需要被监听data上，方便调用Observe提供的方法
       // 2.给被观测过的数据加上表示
+      // 3.将当前Observe实例放到data的__ob__上
       Object.defineProperty(data, '__ob__', {
         value: this,
         enumerable: false // 不可枚举，walk循环时无法获取
@@ -118,10 +124,27 @@
     }
   }
 
+  // 递归 子数组的依赖收集
+  function dependArray(value) {
+    for (let i = 0; i < value.length; i++) {
+      const current = value[i];
+
+      // 如果current是对象/数组需要进行依赖收集
+      if (current.__ob__) {
+        current.__ob__.dep.depend();
+      }
+
+      // 递归处理
+      if (Array.isArray(current)) {
+        dependArray(current);
+      }
+    }
+  }
+
   // 属性劫持 闭包
   function defineReactive(target, key, value) {
     // 递归 深度属性劫持 对所有的对象属性都进行劫持
-    observe(value);
+    const childOb = observe(value);
 
     const dep = new Dep(); // 每个属性都有一个dep
 
@@ -131,7 +154,18 @@
           // 给当前属性的dep记录watcher
           // 只会对被获取的属性进行收集
           dep.depend();
+
+          // 如果是个对象/数组，需要给这个对象/数组的dep也进行依赖收集
+          if (childOb) {
+            childOb.dep.depend();
+
+            // 如果value是数组，且数组内如果有数组也得进行依赖收集
+            if (Array.isArray(value)) {
+              dependArray(value);
+            }
+          }
         }
+
         // console.log(`取值————${value}`)
         return value
       },
@@ -139,6 +173,7 @@
         if (value === newValue) {
           return
         }
+
         // 设置值如果是个对象需要再次代理
         observe(value);
 
@@ -177,17 +212,29 @@
 
   // 不同的组件用自己独立的watcher
   class Watcher {
-    constructor(vm, fn, options) {
+    constructor(vm, exprOrFn, options, cb) {
       this.id = id++;
       this.renderWatcher = options;
-      this.getter = fn;
+
+      // exprOrFn可能会是个字符串(watch)
+      if (typeof exprOrFn === 'string') {
+        this.getter = function() {
+          return vm[exprOrFn]
+        };
+      } else {
+        this.getter = exprOrFn;
+      }
+
+      this.cb = cb;
       this.deps = []; // 记录dep  组价卸载、计算属性
       this.depsId = new Set();
-      this.lazy = options.lazy;
-      this.dirty = this.lazy;
+      this.lazy = options.lazy; // 延迟计算 computer
+      this.usr = options.usr; // 标识是否是用户自己的watcher
+      this.dirty = this.lazy; // 标记脏值
       this.vm = vm;
 
-      this.lazy ? undefined : this.get();
+      // 保存旧值
+      this.value = this.lazy ? undefined : this.get();
     }
 
     // 1.创建渲染watcher时，把当前的watcher放到Dep.target上
@@ -243,7 +290,12 @@
     }
 
     run() {
-      this.get();
+      const oldValue = this.value;
+      const newValue = this.get();
+      if (this.usr) {
+        this.cb.call(this.vm, newValue, oldValue);
+        this.value = newValue;
+      }
     }
   }
 
@@ -331,6 +383,10 @@
     if (opts.computed) {
       initComputed(vm);
     }
+
+    if (opts.watch) {
+      initWatch(vm);
+    }
   }
 
   function proxy(vm, target, key) {
@@ -380,12 +436,42 @@
     }
   }
 
+  function initWatch(vm) {
+    const watch = vm.$options.watch;
+
+    for (const key in watch) {
+      const handler = watch[key];
+      if (Array.isArray(handler)) {
+        createWatcher(vm, key, handler);
+      } else {
+        createWatcher(vm, key, handler);
+      }
+    }
+  }
+
+  function createWatcher(vm, key, handler) {
+    let _handler;
+    let opts = {};
+    // handler 类型 string、string、对象
+    if (typeof handler === 'function') {
+      _handler = handler;
+    } else if (typeof handler === 'string') {
+      _handler = vm[handler];
+    } else {
+      _handler = handler.handler;
+      delete handler.handler;
+      opts = handler;
+    }
+
+    return vm.$watch(key, _handler, opts)
+  }
+
   function defineComputed(vm, key, usrDef) {
     const setter = usrDef.set || (() => {});
 
     Object.defineProperty(vm, key, {
       get: createComputedGetter(key),
-      set: setter
+      set: setter // set不会影响计算属性本身
     });
   }
 
@@ -911,6 +997,19 @@
   initMixin(Vue); // 扩展init方法
   initLifecycle(Vue);
   initGlobalAPI(Vue);
+
+  // $watch的监听不会立即执行，多次修改值只会执行一次（watcher中的异步队列）
+  Vue.prototype.$watch = function(exprOrFn, cb, options = {}) {
+    new Watcher(
+      this,
+      exprOrFn,
+      {
+        usr: true,
+        ...options
+      },
+      cb
+    );
+  };
 
   return Vue;
 

@@ -5,9 +5,13 @@ class Observe {
   constructor(data) {
     // Object.defineProperty只能劫持已经存在的属性（$set,$delete...）
 
+    // 每个对象、数组自身都创建一个dep（ ）
+    this.dep = new Dep()
+
     // 作用：
     // 1.将this挂载到需要被监听data上，方便调用Observe提供的方法
     // 2.给被观测过的数据加上表示
+    // 3.将当前Observe实例放到data的__ob__上
     Object.defineProperty(data, '__ob__', {
       value: this,
       enumerable: false // 不可枚举，walk循环时无法获取
@@ -37,10 +41,27 @@ class Observe {
   }
 }
 
+// 递归 子数组的依赖收集
+function dependArray(value) {
+  for (let i = 0; i < value.length; i++) {
+    const current = value[i]
+
+    // 如果current是对象/数组需要进行依赖收集
+    if (current.__ob__) {
+      current.__ob__.dep.depend()
+    }
+
+    // 递归处理
+    if (Array.isArray(current)) {
+      dependArray(current)
+    }
+  }
+}
+
 // 属性劫持 闭包
 export function defineReactive(target, key, value) {
   // 递归 深度属性劫持 对所有的对象属性都进行劫持
-  observe(value)
+  const childOb = observe(value)
 
   const dep = new Dep() // 每个属性都有一个dep
 
@@ -50,7 +71,18 @@ export function defineReactive(target, key, value) {
         // 给当前属性的dep记录watcher
         // 只会对被获取的属性进行收集
         dep.depend()
+
+        // 如果是个对象/数组，需要给这个对象/数组的dep也进行依赖收集
+        if (childOb) {
+          childOb.dep.depend()
+
+          // 如果value是数组，且数组内如果有数组也得进行依赖收集
+          if (Array.isArray(value)) {
+            dependArray(value)
+          }
+        }
       }
+
       // console.log(`取值————${value}`)
       return value
     },
@@ -58,6 +90,7 @@ export function defineReactive(target, key, value) {
       if (value === newValue) {
         return
       }
+
       // 设置值如果是个对象需要再次代理
       observe(value)
 

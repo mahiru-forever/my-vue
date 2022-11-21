@@ -40,6 +40,8 @@ arrayMethods.forEach(method => {
       ob.observeArray(inserted)
     }
 
+    // 触发数组的watcher视图更新
+    ob.dep.notify()
     return result
   }
 })

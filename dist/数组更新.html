@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+</head>
+<title>Document</title>
+
+<body>
+  <div id="app" style="font-size: 16px;line-height: 20px;">
+    <div style="color:blue;">
+      {{ arr }}
+      {{ a }}
+      {{ arr1 }}
+    </div>
+  </div>
+  <script src="./vue.js"></script>
+  <script>
+    const vm = new Vue({
+      data() {
+        return {
+          arr: [1, 2, 3],
+          a: { a: 1 },
+          arr1: [1, 2, ['a', 'b']]
+        }
+      },
+      el: '#app'
+    })
+
+    setTimeout(() => {
+      vm.arr1[2].push('c')
+      // vm.arr.push(4)
+      // vm.a.b = 1
+      // vm.a.__ob__.dep.notify()  // $set原理
+    }, 1000);
+  </script>
+</body>
+
+</html>

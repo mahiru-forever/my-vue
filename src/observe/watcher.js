@@ -12,17 +12,29 @@ let id = 0
 
 // 不同的组件用自己独立的watcher
 class Watcher {
-  constructor(vm, fn, options) {
+  constructor(vm, exprOrFn, options, cb) {
     this.id = id++
     this.renderWatcher = options
-    this.getter = fn
+
+    // exprOrFn可能会是个字符串(watch)
+    if (typeof exprOrFn === 'string') {
+      this.getter = function() {
+        return vm[exprOrFn]
+      }
+    } else {
+      this.getter = exprOrFn
+    }
+
+    this.cb = cb
     this.deps = [] // 记录dep  组价卸载、计算属性
     this.depsId = new Set()
-    this.lazy = options.lazy
-    this.dirty = this.lazy
+    this.lazy = options.lazy // 延迟计算 computer
+    this.usr = options.usr // 标识是否是用户自己的watcher
+    this.dirty = this.lazy // 标记脏值
     this.vm = vm
 
-    this.lazy ? undefined : this.get()
+    // 保存旧值
+    this.value = this.lazy ? undefined : this.get()
   }
 
   // 1.创建渲染watcher时，把当前的watcher放到Dep.target上
@@ -78,7 +90,12 @@ class Watcher {
   }
 
   run() {
-    this.get()
+    const oldValue = this.value
+    const newValue = this.get()
+    if (this.usr) {
+      this.cb.call(this.vm, newValue, oldValue)
+      this.value = newValue
+    }
   }
 }
 

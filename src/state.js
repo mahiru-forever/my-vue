@@ -12,6 +12,10 @@ export function initState(vm) {
   if (opts.computed) {
     initComputed(vm)
   }
+
+  if (opts.watch) {
+    initWatch(vm)
+  }
 }
 
 function proxy(vm, target, key) {
@@ -61,12 +65,42 @@ function initComputed(vm) {
   }
 }
 
+function initWatch(vm) {
+  const watch = vm.$options.watch
+
+  for (const key in watch) {
+    const handler = watch[key]
+    if (Array.isArray(handler)) {
+      createWatcher(vm, key, handler)
+    } else {
+      createWatcher(vm, key, handler)
+    }
+  }
+}
+
+function createWatcher(vm, key, handler) {
+  let _handler
+  let opts = {}
+  // handler 类型 string、string、对象
+  if (typeof handler === 'function') {
+    _handler = handler
+  } else if (typeof handler === 'string') {
+    _handler = vm[handler]
+  } else {
+    _handler = handler.handler
+    delete handler.handler
+    opts = handler
+  }
+
+  return vm.$watch(key, _handler, opts)
+}
+
 function defineComputed(vm, key, usrDef) {
   const setter = usrDef.set || (() => {})
 
   Object.defineProperty(vm, key, {
     get: createComputedGetter(key),
-    set: setter
+    set: setter // set不会影响计算属性本身
   })
 }
 
