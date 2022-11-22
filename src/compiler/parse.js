@@ -47,7 +47,11 @@ export function parseHTML(html) {
 
   function chars(text) {
     // 空格超过2个，转为一个空格
-    text = text.replace(/\s{2,}/g, ' ')
+    // text = text.replace(/\s{2,}/g, ' ')
+    text = text.replace(/\s/g, '')
+    if (text === '') {
+      return
+    }
 
     // 文本直接指向当前父节点
     currentParent.children.push({

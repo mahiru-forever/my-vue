@@ -1,5 +1,5 @@
 import { observe } from './observe/index'
-import Watcher from './observe/watcher'
+import Watcher, { nextTick } from './observe/watcher'
 import Dep from './observe/dep'
 
 export function initState(vm) {
@@ -120,5 +120,22 @@ function createComputedGetter(key) {
     }
 
     return watcher.value
+  }
+}
+
+export function initStateMixin(Vue) {
+  Vue.prototype.$nextTick = nextTick
+
+  // $watch的监听不会立即执行，多次修改值只会执行一次（watcher中的异步队列）
+  Vue.prototype.$watch = function(exprOrFn, cb, options = {}) {
+    new Watcher(
+      this,
+      exprOrFn,
+      {
+        usr: true,
+        ...options
+      },
+      cb
+    )
   }
 }

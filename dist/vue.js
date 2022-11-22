@@ -494,6 +494,23 @@
     }
   }
 
+  function initStateMixin(Vue) {
+    Vue.prototype.$nextTick = nextTick;
+
+    // $watch的监听不会立即执行，多次修改值只会执行一次（watcher中的异步队列）
+    Vue.prototype.$watch = function(exprOrFn, cb, options = {}) {
+      new Watcher(
+        this,
+        exprOrFn,
+        {
+          usr: true,
+          ...options
+        },
+        cb
+      );
+    };
+  }
+
   const ncname = `[a-zA-Z_][\\-\\.0-9_a-zA-Z]*`;
   const qnameCapture = `((?:${ncname}\\:)?${ncname})`;
   const startTagOpen = new RegExp(`^<${qnameCapture}`); // 标签名 <div
@@ -543,7 +560,11 @@
 
     function chars(text) {
       // 空格超过2个，转为一个空格
-      text = text.replace(/\s{2,}/g, ' ');
+      // text = text.replace(/\s{2,}/g, ' ')
+      text = text.replace(/\s/g, '');
+      if (text === '') {
+        return
+      }
 
       // 文本直接指向当前父节点
       currentParent.children.push({
@@ -760,11 +781,9 @@
     }
   }
 
-  // vue流程
-  // 1.生成响应式数据
-  // 2.模板转换成ast
-  // 3.ast转成render函数
-  // 4.后续每次更新都通过render函数，无需ast
+  function isSameVNode(vnode1, vnode2) {
+    return vnode1.tag === vnode2.tag && vnode1.key === vnode2.key
+  }
 
   function createElm(vnode) {
     const { tag, data, children, text } = vnode;
@@ -773,7 +792,7 @@
       // 标签
       vnode.el = document.createElement(tag);
 
-      patchProps(vnode.el, data);
+      patchProps(vnode.el, {}, data);
 
       // 处理子节点
       children.forEach(child => {
@@ -787,7 +806,24 @@
     return vnode.el
   }
 
-  function patchProps(el, props) {
+  function patchProps(el, oldProps, props) {
+    const oldStyles = oldProps.style || {};
+    const styles = props.style || {};
+
+    // 旧的有，新的没有，则删除
+    // 删除style
+    for (const key in oldStyles) {
+      if (!styles.hasOwnProperty(key)) {
+        el.style[key] = '';
+      }
+    }
+    // 删除其他属性
+    for (const key in oldProps) {
+      if (!props.hasOwnProperty(key)) {
+        el.removeAttribute(key);
+      }
+    }
+
     for (const key in props) {
       if (props.hasOwnProperty(key)) {
         if (key === 'style') {
@@ -815,8 +851,87 @@
       parentElm.insertBefore(newElm, elm.nextSibling);
       parentElm.removeChild(elm);
       return newElm
+    } else {
+      // diff
+      // 1. 两个节点不是同一个节点，直接删除原来的换上新的（不进行后续比对）
+      // 2. 两个节点是同一个节点（需要比对节点的tag和key）； 最后在比较两个节点的属性，保留标签修改属性
+      // 3. 两个节点比较完后，比对子节点
+      // 4. 比较节点的文本内容
+      return patchVNode(oldVNode, vnode)
     }
   }
+
+  function patchVNode(oldVNode, vnode) {
+    // 不是同一个节点，新的替换老的
+    if (!isSameVNode(oldVNode, vnode)) {
+      const el = createElm(vnode);
+      oldVNode.el.parentNode.replaceChild(el, oldVNode.el);
+      return el
+    }
+
+    // 复用老的dom
+    const el = (vnode.el = oldVNode.el);
+
+    // 文本节点的情况
+    if (oldVNode.tag === undefined) {
+      if (oldVNode.text !== vnode.text) {
+        el.textContent = vnode.text;
+      }
+      return el
+    }
+
+    // 新旧节点是同一个标签   进行属性比对
+    patchProps(el, oldVNode.data, vnode.data);
+
+    // 比对子节点
+    // 1. 一方有子节点，一方没有子节点
+    // 2. 两方都有子节点
+    const oldChildren = oldVNode.children || [];
+    const newChildren = vnode.children || [];
+
+    if (oldChildren.length > 0 && newChildren.length > 0) {
+      // 需要完整的比较
+      updateChildren(el, oldChildren, newChildren);
+    } else if (newChildren.length > 0) {
+      // 挂载新的子节点
+      mountChildren(el, newChildren);
+    } else if (oldChildren.length > 0) {
+      // 移除旧的子节点
+      unmountChildren(el, oldChildren);
+    }
+
+    return el
+  }
+
+  function mountChildren(el, newChildren) {
+    for (let i = 0; i < newChildren.length; i++) {
+      const child = newChildren[i];
+      el.appendChild(createElm(child));
+    }
+  }
+
+  function unmountChildren(el, oldChildren) {
+    for (let i = 0; i < oldChildren.length; i++) {
+      const child = oldChildren[i];
+      el.removeChild(child.el);
+    }
+  }
+
+  function updateChildren(el, oldChildren, newChildren) {
+    let oldEndIndex = oldChildren.length - 1;
+    let newEndIndex = newChildren.length - 1;
+
+    oldChildren[0];
+    newChildren[0];
+    oldChildren[oldEndIndex];
+    newChildren[newEndIndex];
+  }
+
+  // vue流程
+  // 1.生成响应式数据
+  // 2.模板转换成ast
+  // 3.ast转成render函数
+  // 4.后续每次更新都通过render函数，无需ast
 
   function initLifecycle(Vue) {
     Vue.prototype._update = function(vnode) {
@@ -993,23 +1108,36 @@
     this._init(options);
   }
 
-  Vue.prototype.$nextTick = nextTick;
   initMixin(Vue); // 扩展init方法
   initLifecycle(Vue);
   initGlobalAPI(Vue);
+  initStateMixin(Vue);
 
-  // $watch的监听不会立即执行，多次修改值只会执行一次（watcher中的异步队列）
-  Vue.prototype.$watch = function(exprOrFn, cb, options = {}) {
-    new Watcher(
-      this,
-      exprOrFn,
-      {
-        usr: true,
-        ...options
-      },
-      cb
-    );
-  };
+  const render1 = compileToFunction(`<ul a="1">
+  <li key="a">a</li>
+  <li key="b">b</li>
+  <li key="c">c</li>
+</ul>`);
+  const vm1 = new Vue({ data: { age: 10 } });
+  const oldVnode = render1.call(vm1);
+  const el = createElm(oldVnode);
+  document.body.appendChild(el);
+
+  const render2 = compileToFunction(`<ul a="1" style="color: red">
+  <li key="a">a</li>
+  <li key="b">b</li>
+  <li key="c">c</li>
+  <li key="d">d</li>
+</ul>`);
+  const vm2 = new Vue({ data: { age: 20 } });
+  const newVnode = render2.call(vm2);
+
+  setTimeout(() => {
+    patch(oldVnode, newVnode);
+
+    // const newEl = createElm(newVnode)
+    // el.parentNode.replaceChild(newEl, el)
+  }, 1000);
 
   return Vue;
 

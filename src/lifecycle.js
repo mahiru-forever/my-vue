@@ -1,65 +1,12 @@
 import { createTextVNode, createElementVNode } from './vdom/index'
 import Watcher from './observe/watcher'
+import { patch } from './vdom/patch'
 
 // vue流程
 // 1.生成响应式数据
 // 2.模板转换成ast
 // 3.ast转成render函数
 // 4.后续每次更新都通过render函数，无需ast
-
-function createElm(vnode) {
-  const { tag, data, children, text } = vnode
-
-  if (typeof tag === 'string') {
-    // 标签
-    vnode.el = document.createElement(tag)
-
-    patchProps(vnode.el, data)
-
-    // 处理子节点
-    children.forEach(child => {
-      vnode.el.appendChild(createElm(child))
-    })
-  } else {
-    // 文本
-    vnode.el = document.createTextNode(text)
-  }
-
-  return vnode.el
-}
-
-function patchProps(el, props) {
-  for (const key in props) {
-    if (props.hasOwnProperty(key)) {
-      if (key === 'style') {
-        // style特殊处理
-        for (const styleName in props.style) {
-          if (props.style.hasOwnProperty(styleName)) {
-            el.style[styleName] = props.style[styleName]
-          }
-        }
-      } else {
-        el.setAttribute(key, props[key])
-      }
-    }
-  }
-}
-
-function patch(oldVNode, vnode) {
-  // 判断是不是真实的dom节点（处渲染是真实节点）
-  const isRealElement = oldVNode.nodeType
-  if (isRealElement) {
-    // 初渲染
-    const elm = oldVNode
-    const parentElm = elm.parentNode
-    const newElm = createElm(vnode)
-    parentElm.insertBefore(newElm, elm.nextSibling)
-    parentElm.removeChild(elm)
-    return newElm
-  } else {
-    // diff
-  }
-}
 
 export function initLifecycle(Vue) {
   Vue.prototype._update = function(vnode) {
