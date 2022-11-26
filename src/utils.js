@@ -26,6 +26,19 @@ LIFECYCLE.forEach(hook => {
   }
 })
 
+// 先找自己的组件，找不到再从原型上找父组件的
+strats.components = function(p, c) {
+  const res = Object.create(p)
+
+  if (c) {
+    for (const key in c) {
+      res[key] = c[key]
+    }
+  }
+
+  return res
+}
+
 export function mergeOptions(parent, child) {
   const options = {}
 

@@ -82,11 +82,11 @@ function codegen(ast) {
 export function compileToFunction(template) {
   // 1. 将template转换成ast语法树
   const ast = parseHTML(template)
-  console.log('ast————', ast)
+  // console.log('ast————', ast)
 
   // 2. 生成render方法（render方法生成虚拟dom）
   const code = codegen(ast)
-  console.log('code————', code)
+  // console.log('code————', code)
 
   // 指定作用于，挂载到vm上 (with + new Function)   render.call(vm)
   const render = new Function(`with(this) { return ${code} }`)

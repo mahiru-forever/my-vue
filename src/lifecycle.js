@@ -12,8 +12,17 @@ export function initLifecycle(Vue) {
   Vue.prototype._update = function(vnode) {
     const vm = this
     const el = vm.$el
-    // 初始化+更新
-    vm.$el = patch(el, vnode)
+
+    const prevVnode = vm._vnode
+    vm._vnode = vnode // 保存本次的虚拟节点，下一次更新时使用
+
+    if (prevVnode) {
+      // 更新
+      vm.$el = patch(prevVnode, vnode)
+    } else {
+      // 初始化
+      vm.$el = patch(el, vnode)
+    }
   }
 
   // _c('div', {xxx}, ...children)
@@ -39,7 +48,7 @@ export function initLifecycle(Vue) {
 
     // with中的this指向vm
     const vnode = vm.$options.render.call(vm)
-    console.log('vnode——', vnode)
+    // console.log('vnode——', vnode)
 
     // 渲染时从vnode实例中取值，将属性与视图绑定在一起
     return vnode
@@ -55,6 +64,7 @@ export function mountComponent(vm, el) {
     vm._update(vm._render())
   }
 
+  // 组件触发更新时，执行updateComponent
   new Watcher(vm, updateComponent, true) // true => 是一个渲染watcher
 }
 

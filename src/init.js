@@ -10,7 +10,7 @@ export function initMixin(Vue) {
 
     // 将vue全局属性配置项 挂载到实例上
     vm.$options = mergeOptions(this.constructor.options, options)
-    console.log('vue options————', this.$options)
+    // console.log('vue options————', this.$options)
 
     callHooks(vm, 'beforeCreate')
     // 初始化状态
@@ -33,7 +33,7 @@ export function initMixin(Vue) {
       let template
       if (!opts.template && el) {
         template = el.outerHTML
-      } else if (el) {
+      } else {
         // runtime不包含模板编译，编译是打包时通过loader转义.vue文件，所有runtime不能用template配置
         template = opts.template // 有模板优先用模板
       }

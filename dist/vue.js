@@ -738,16 +738,44 @@
   function compileToFunction(template) {
     // 1. 将template转换成ast语法树
     const ast = parseHTML(template);
-    console.log('ast————', ast);
+    // console.log('ast————', ast)
 
     // 2. 生成render方法（render方法生成虚拟dom）
     const code = codegen(ast);
-    console.log('code————', code);
+    // console.log('code————', code)
 
     // 指定作用于，挂载到vm上 (with + new Function)   render.call(vm)
     const render = new Function(`with(this) { return ${code} }`);
     return render
   }
+
+  // 列出所有原生标签。。。
+  const isReservedTag = tag =>
+    [
+      'div',
+      'a',
+      'p',
+      'ul',
+      'li',
+      'span',
+      'img',
+      'nav',
+      'pre',
+      'input',
+      'textarea',
+      'table',
+      'tbody',
+      'thead',
+      'th',
+      'td',
+      'iframe',
+      'video',
+      'br',
+      'em',
+      's',
+      'i',
+      'button'
+    ].includes(tag);
 
   // h() _c()
   function createElementVNode(vm, tag, data, ...children) {
@@ -760,7 +788,33 @@
       delete data.key;
     }
 
-    return vnode(vm, tag, key, data, children)
+    if (isReservedTag(tag)) {
+      return vnode(vm, tag, key, data, children)
+    } else {
+      // 创造一个组件的虚拟节点（包括组件的构造函数）
+      // Ctor就是组件的定义，可能是一个Sub类，也可能是组件的obj配置项
+      const Ctor = vm.$options.components[tag];
+
+      return createComponentVnode(vm, tag, key, data, children, Ctor)
+    }
+  }
+
+  function createComponentVnode(vm, tag, key, data, children, Ctor) {
+    if (typeof Ctor === 'object' && Ctor !== null) {
+      Ctor = vm.$options._base.extend(Ctor);
+    }
+
+    data.hooks = {
+      a: 1,
+      // 创造真实节点的时候，如果是组件则调用此init方法
+      init(vnode) {
+        const instance = (vnode.componentInstance = new vnode.componentOptions.Ctor());
+
+        instance.$mount(); // instance.$el
+      }
+    };
+
+    return vnode(vm, tag, key, data, children, null, { Ctor })
   }
 
   // _v()
@@ -770,14 +824,15 @@
 
   // ast描述的是语法
   // 虚拟dom描述的是dom元素，可以增加一些自定义属性
-  function vnode(vm, tag, key, data, children, text) {
+  function vnode(vm, tag, key, data, children, text, componentOptions) {
     return {
       vm,
       tag,
       key,
       data,
       children,
-      text
+      text,
+      componentOptions // 组件的构造函数
     }
   }
 
@@ -785,10 +840,27 @@
     return vnode1.tag === vnode2.tag && vnode1.key === vnode2.key
   }
 
+  function createComponent(vnode) {
+    let i = vnode.data;
+
+    if ((i = i.hooks) && (i = i.init)) {
+      i(vnode);
+    }
+
+    if (vnode.componentInstance) {
+      return true
+    }
+  }
+
   function createElm(vnode) {
     const { tag, data, children, text } = vnode;
 
     if (typeof tag === 'string') {
+      // 区分是组件还是元素
+      if (createComponent(vnode)) {
+        return vnode.componentInstance.$el
+      }
+
       // 标签
       vnode.el = document.createElement(tag);
 
@@ -806,7 +878,7 @@
     return vnode.el
   }
 
-  function patchProps(el, oldProps, props) {
+  function patchProps(el, oldProps = {}, props = {}) {
     const oldStyles = oldProps.style || {};
     const styles = props.style || {};
 
@@ -841,6 +913,10 @@
   }
 
   function patch(oldVNode, vnode) {
+    if (!oldVNode) {
+      return createElm(vnode) // vm.$el 就是对应组件的渲染结果
+    }
+
     // 判断是不是真实的dom节点（处渲染是真实节点）
     const isRealElement = oldVNode.nodeType;
     if (isRealElement) {
@@ -918,13 +994,117 @@
   }
 
   function updateChildren(el, oldChildren, newChildren) {
+    // 双指针 对比新旧节点
+    let oldStartIndex = 0;
+    let newStartIndex = 0;
     let oldEndIndex = oldChildren.length - 1;
     let newEndIndex = newChildren.length - 1;
 
-    oldChildren[0];
-    newChildren[0];
-    oldChildren[oldEndIndex];
-    newChildren[newEndIndex];
+    let oldStartVnode = oldChildren[0];
+    let newStartVnode = newChildren[0];
+    let oldEndVnode = oldChildren[oldEndIndex];
+    let newEndVnode = newChildren[newEndIndex];
+
+    function makeIndexByKey(children) {
+      const map = {};
+
+      children.forEach((child, index) => {
+        map[child.key] = index;
+      });
+
+      return map
+    }
+
+    const map = makeIndexByKey(oldChildren);
+
+    // 新旧有一个 头指针 > 尾指针 就终止循环
+    while (oldStartIndex <= oldEndIndex && newStartIndex <= newEndIndex) {
+      // 处理空节点
+      if (!oldStartVnode) {
+        oldStartVnode = oldChildren[++oldStartIndex];
+      } else if (!oldEndVnode) {
+        oldEndVnode = oldChildren[--oldEndIndex];
+      }
+
+      // 头头比对  从前往后比  优化push，pop
+      else if (isSameVNode(oldStartVnode, newStartVnode)) {
+        // 如果节点相同则递归比较子节点
+        patchVNode(oldStartVnode, newStartVnode);
+        oldStartVnode = oldChildren[++oldStartIndex];
+        newStartVnode = newChildren[++newStartIndex];
+      }
+
+      // 尾尾比对  从后往前比  优化shift，unshift
+      else if (isSameVNode(oldEndVnode, newEndVnode)) {
+        // 如果节点相同则递归比较子节点
+        patchVNode(oldEndVnode, newEndVnode);
+        oldEndVnode = oldChildren[--oldEndIndex];
+        newEndVnode = newChildren[--newEndIndex];
+      }
+
+      // 交叉对比 优化reserve
+      else if (isSameVNode(oldEndVnode, newStartVnode)) {
+        patchVNode(oldEndVnode, newStartVnode);
+        el.insertBefore(oldEndVnode.el, oldStartVnode.el); // 把老的尾节点移动到老的头结点前面
+        oldEndVnode = oldChildren[--oldEndIndex];
+        newStartVnode = newChildren[++newStartIndex];
+      }
+
+      // 交叉对比 优化reserve
+      else if (isSameVNode(oldStartVnode, newEndVnode)) {
+        patchVNode(oldStartVnode, newEndVnode);
+        el.insertBefore(oldStartVnode.el, oldEndVnode.el, nextSibling); // 把老的头节点移动到老的尾结点后面
+        oldStartVnode = oldChildren[++oldStartIndex];
+        newEndVnode = newChildren[--newEndIndex];
+      }
+
+      // 乱序比对
+      // 根据老的列表做一个映射关系，用新的去找，找到则移动，找不到则添加，最后剩下的删除
+      else {
+        const moveIndex = map[newStartVnode.key];
+        if (moveIndex !== undefined) {
+          // 找到对应的节点，进行复用
+          const moveVNode = oldChildren[moveIndex];
+          el.insertBefore(moveVNode.el, oldStartVnode.el);
+          // 标记已被使用
+          map[newStartVnode.key] = undefined;
+          oldChildren[moveIndex] = undefined;
+          // 比对属性和子节点
+          patchVNode(moveVNode, newStartVnode);
+        } else {
+          // 没有对应节点，重新创建
+          el.insertBefore(createElm(newStartVnode), oldStartVnode.el);
+        }
+
+        newStartVnode = newChildren[++newStartIndex];
+      }
+    }
+
+    // 新的多余  插入
+    if (newStartIndex <= newEndIndex) {
+      for (let i = newStartIndex; i <= newEndIndex; i++) {
+        const childEl = createElm(newChildren[i]);
+
+        // 可能往后追加，也可能往前追加
+        const anchor = newChildren[newEndIndex + 1]
+          ? newChildren[newEndIndex + 1].el
+          : null;
+
+        // 如果anchor为null，则相当于appendChild
+        el.insertBefore(childEl, anchor);
+        // el.appendChild(childEl)
+      }
+    }
+
+    // 老的多余 删除
+    if (oldStartIndex <= oldEndIndex) {
+      for (let i = oldStartIndex; i <= oldEndIndex; i++) {
+        if (oldChildren[i]) {
+          const childEl = oldChildren[i].el;
+          el.removeChild(childEl);
+        }
+      }
+    }
   }
 
   // vue流程
@@ -937,8 +1117,17 @@
     Vue.prototype._update = function(vnode) {
       const vm = this;
       const el = vm.$el;
-      // 初始化+更新
-      vm.$el = patch(el, vnode);
+
+      const prevVnode = vm._vnode;
+      vm._vnode = vnode; // 保存本次的虚拟节点，下一次更新时使用
+
+      if (prevVnode) {
+        // 更新
+        vm.$el = patch(prevVnode, vnode);
+      } else {
+        // 初始化
+        vm.$el = patch(el, vnode);
+      }
     };
 
     // _c('div', {xxx}, ...children)
@@ -964,7 +1153,7 @@
 
       // with中的this指向vm
       const vnode = vm.$options.render.call(vm);
-      console.log('vnode——', vnode);
+      // console.log('vnode——', vnode)
 
       // 渲染时从vnode实例中取值，将属性与视图绑定在一起
       return vnode
@@ -980,6 +1169,7 @@
       vm._update(vm._render());
     };
 
+    // 组件触发更新时，执行updateComponent
     new Watcher(vm, updateComponent, true); // true => 是一个渲染watcher
   }
 
@@ -1019,6 +1209,19 @@
     };
   });
 
+  // 先找自己的组件，找不到再从原型上找父组件的
+  strats.components = function(p, c) {
+    const res = Object.create(p);
+
+    if (c) {
+      for (const key in c) {
+        res[key] = c[key];
+      }
+    }
+
+    return res
+  };
+
   function mergeOptions(parent, child) {
     const options = {};
 
@@ -1053,7 +1256,7 @@
 
       // 将vue全局属性配置项 挂载到实例上
       vm.$options = mergeOptions(this.constructor.options, options);
-      console.log('vue options————', this.$options);
+      // console.log('vue options————', this.$options)
 
       callHooks(vm, 'beforeCreate');
       // 初始化状态
@@ -1076,7 +1279,7 @@
         let template;
         if (!opts.template && el) {
           template = el.outerHTML;
-        } else if (el) {
+        } else {
           // runtime不包含模板编译，编译是打包时通过loader转义.vue文件，所有runtime不能用template配置
           template = opts.template; // 有模板优先用模板
         }
@@ -1096,10 +1299,38 @@
 
   function initGlobalAPI(Vue) {
     // 静态方法
-    Vue.options = {};
+    Vue.options = {
+      _base: Vue
+    };
 
     Vue.mixin = function(mixin) {
       this.options = mergeOptions(this.options, mixin);
+    };
+
+    // 可以手动创建组件，并挂载
+    // data必须是个函数，_init会执行mergeOptions方法，如果是对象的话（引用类型），组件重复创建data数据会被共享
+    Vue.extend = function(options) {
+      // 最终使用一个组件，就是new一个实例
+      function Sub(options = {}) {
+        // 默认对子类进行初始化操作
+        this._init(options);
+      }
+      // 子类继承Vue
+      Sub.prototype = Object.create(Vue.prototype);
+      Sub.prototype.constructor = Sub; // 需要重新指定一下constructor，不然constructor值是Vue
+
+      // 保存传入的配置项，将用户配置项与全局配置项合并
+      Sub.options = mergeOptions(Vue.options, options);
+
+      return Sub
+    };
+
+    Vue.component = function(id, definition) {
+      if (!Vue.options.components) {
+        Vue.options.components = {};
+      }
+      Vue.options.components[id] =
+        typeof definition === 'function' ? definition : Vue.extend(definition);
     };
   }
 
@@ -1112,32 +1343,6 @@
   initLifecycle(Vue);
   initGlobalAPI(Vue);
   initStateMixin(Vue);
-
-  const render1 = compileToFunction(`<ul a="1">
-  <li key="a">a</li>
-  <li key="b">b</li>
-  <li key="c">c</li>
-</ul>`);
-  const vm1 = new Vue({ data: { age: 10 } });
-  const oldVnode = render1.call(vm1);
-  const el = createElm(oldVnode);
-  document.body.appendChild(el);
-
-  const render2 = compileToFunction(`<ul a="1" style="color: red">
-  <li key="a">a</li>
-  <li key="b">b</li>
-  <li key="c">c</li>
-  <li key="d">d</li>
-</ul>`);
-  const vm2 = new Vue({ data: { age: 20 } });
-  const newVnode = render2.call(vm2);
-
-  setTimeout(() => {
-    patch(oldVnode, newVnode);
-
-    // const newEl = createElm(newVnode)
-    // el.parentNode.replaceChild(newEl, el)
-  }, 1000);
 
   return Vue;
 

@@ -10,10 +10,9 @@
 
 <body>
   <div id="app" style="font-size: 16px;line-height: 20px;">
-    <!-- <div style="color:blue;">
-      {{ name }} {{ age }}
-    </div> -->
+    <span>{{ name }}</span>
   </div>
+  <div id="root"></div>
   <script src="./vue.js"></script>
   <script>
     // const vm = new Vue({
@@ -29,6 +28,22 @@
     // setTimeout(() => {
     //   vm.name = 'hahahh'
     // }, 1000);
+
+    Vue.component('my-component11', {
+      template: '<button>全局按钮</button>'
+    })
+
+    const Sub = Vue.extend({
+      template: '<div>子组件<my-component></my-component></div>',
+      components: {
+        'my-component': {
+          template: '<button>子组件按钮</button>'
+        }
+      }
+    })
+
+    new Sub().$mount('#root')
+
 
   </script>
 </body>
