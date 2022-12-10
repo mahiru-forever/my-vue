@@ -1,0 +1,22 @@
+# 全局api
+
+- initMixin
+  - Vue.prototype._init()
+- stateMixin
+  - Vue.prototype.$set()
+  - Vue.prototype.$delete()
+  - Vue.prototype.$watch()
+- eventsMixin
+  - Vue.prototype.$on()
+  - Vue.prototype.$once()
+  - Vue.prototype.$off()
+  - Vue.prototype.$emit()
+- lifecycleMixin
+  - Vue.prototype._update()
+  - Vue.prototype.$forceUpdate()
+  - Vue.prototype.$destory()
+- renderMixin
+  - Vue.prototype.$nextTick(cb)
+    - 多个nextTick只会执行一次，会现将cb放回队列中
+    - 如果不传cb，则可以支持promise，即nextTick().then()
+  - Vue.prototype._render()
