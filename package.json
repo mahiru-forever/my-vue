@@ -12,10 +12,12 @@
   "devDependencies": {
     "@babel/core": "^7.20.2",
     "@babel/preset-env": "^7.20.2",
+    "@rollup/plugin-node-resolve": "^15.0.1",
     "rollup": "^3.3.0",
-    "rollup-plugin-babel": "^4.4.0",
-    "@rollup/plugin-node-resolve": "^15.0.1"
+    "rollup-plugin-babel": "^4.4.0"
   },
-  "dependencies": {},
+  "dependencies": {
+    "vue": "^3.2.45"
+  },
   "description": ""
 }
