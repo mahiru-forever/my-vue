@@ -54,7 +54,7 @@ function installModule(store, rootState, path, rootModule) {
         mutationValue(getState(store, path), payload) // 此时_commiting值为true
       })
 
-      store.subscribes.forEach(fn =>
+      store._subscribes.forEach(fn =>
         fn({ type: namespaced + mutationKey, payload }, store.state)
       )
     })
@@ -136,7 +136,7 @@ class Store {
     this._wrappedGetters = Object.create(null) // 存放计算属性
 
     this.plugins = options.plugins || []
-    this.subscribes = [] // 存放插件
+    this._subscribes = [] // 存放插件
 
     // 维护一个变量，在执行mutation时，设置为true，
     // 为false时，赋值操作会报错
@@ -152,7 +152,7 @@ class Store {
     resetStoreVM(this, state)
 
     // 安装插件
-    this.plugins.forEach(plugin => this.subscribes.push(plugin(this)))
+    this.plugins.forEach(plugin => this._subscribes.push(plugin(this)))
   }
 
   _withCommiting(fn) {
@@ -189,6 +189,10 @@ class Store {
 
   get state() {
     return this._vm._data.$$state
+  }
+
+  subscribes(cb) {
+    this._subscribes.push(cb)
   }
 }
 
